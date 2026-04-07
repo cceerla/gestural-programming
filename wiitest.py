@@ -1,8 +1,20 @@
 import time
+from enum import Enum
 from _xwiimote import ffi, lib
 
 xwii_iface = []
-last_event = ffi.new("struct xwii_event")
+last_event = ffi.new("struct xwii_event*")
+
+XWS = Enum('XWS', [('WAIT', 1), ('WRITE', 2)])
+XW_state = XWS.WAIT
+
+start_time = time.time()
+
+recording_num = 0
+curr_recording = None
+
+def curr_time():
+    return time.time() - start_time
 
 # prints cffi strings from a list
 def print_strings(ffistrs):
@@ -36,28 +48,64 @@ def xw_get_battery(device:int=0):
     return battery_level[0]
 
 def xw_get_event(device:int=0):
+    global last_event
+
     event = ffi.new("struct xwii_event *")
     lib.xwii_iface_dispatch(xwii_iface[device], event, ffi.sizeof(event[0]))
     last_event = event[0]
     
     match event[0].type:
         case lib.XWII_EVENT_ACCEL:
-            print(f"<{event[0].v.abs[0].x:+04d}," + 
-                  f" {event[0].v.abs[0].y:+04d}," + 
-                  f" {event[0].v.abs[0].z:+04d}>")
+            #print(f"<{event[0].v.abs[0].x:+04d}," + 
+            #      f" {event[0].v.abs[0].y:+04d}," + 
+            #      f" {event[0].v.abs[0].z:+04d}>")
+            pass
         case lib.XWII_EVENT_KEY:
-            if event[0].v.key.state:
-                print(f"key: {event[0].v.key.code}")
+            #if event[0].v.key.state:
+            #    print(f"key: {event[0].v.key.code}")
+            pass
+
+def open_recording(num:int):
+    global curr_recording
+    curr_recording = open(f"recordings/gesture_{num}.csv", "w")
+
+def record(x, y, z):
+    global curr_recording
+    curr_recording.write(f"{curr_time()},{x},{y},{z}\r\n")
+
+def close_recording():
+    global curr_recording
+    curr_recording.close()
 
 def handle_fsm():
-    pass
+    global XW_state
+    global recording_num
 
-# MAIN
+    if XW_state == XWS.WAIT:
+        if (last_event.type is lib.XWII_EVENT_KEY
+                and last_event.v.key.code == lib.XWII_KEY_A
+                and last_event.v.key.state):
+            XW_state = XWS.WRITE
+            # task on state transition...
+            open_recording(recording_num)
+
+    if XW_state == XWS.WRITE:
+        if last_event.type is lib.XWII_EVENT_ACCEL:
+            record(last_event.v.abs[0].x,
+                   last_event.v.abs[0].y,
+                   last_event.v.abs[0].z)
+            
+        if (last_event.type is lib.XWII_EVENT_KEY
+                and last_event.v.key.code == lib.XWII_KEY_A
+                and not last_event.v.key.state):
+            XW_state = XWS.WAIT
+            close_recording()
+            recording_num += 1
+
+# MAIN ------------------------------------------------------------------------
 
 xw_enumerate()
 print(f"created interfaces: {xwii_iface}")
-
-print(xw_get_battery(0))
 
 while (1):
     xw_get_event()
