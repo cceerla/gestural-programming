@@ -2,7 +2,7 @@ import time
 from _xwiimote import ffi, lib
 
 xwii_iface = []
-
+last_event = ffi.new("struct xwii_event")
 
 # prints cffi strings from a list
 def print_strings(ffistrs):
@@ -38,7 +38,8 @@ def xw_get_battery(device:int=0):
 def xw_get_event(device:int=0):
     event = ffi.new("struct xwii_event *")
     lib.xwii_iface_dispatch(xwii_iface[device], event, ffi.sizeof(event[0]))
-    #print(f"event: {event[0].type}")
+    last_event = event[0]
+    
     match event[0].type:
         case lib.XWII_EVENT_ACCEL:
             print(f"<{event[0].v.abs[0].x:+04d}," + 
@@ -48,11 +49,16 @@ def xw_get_event(device:int=0):
             if event[0].v.key.state:
                 print(f"key: {event[0].v.key.code}")
 
+def handle_fsm():
+    pass
+
 # MAIN
 
 xw_enumerate()
 print(f"created interfaces: {xwii_iface}")
 
 print(xw_get_battery(0))
+
 while (1):
     xw_get_event()
+    handle_fsm()
