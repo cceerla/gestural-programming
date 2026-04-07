@@ -1,7 +1,8 @@
+import time
 from _xwiimote import ffi, lib
 
-xwii_devices = []
 xwii_iface = []
+
 
 # prints cffi strings from a list
 def print_strings(ffistrs):
@@ -16,16 +17,15 @@ def xw_enumerate():
         print("in enumerate(): xwii_monitor_new() returned NULL.")
 
     while (1):
+        # get device file path
         ent = ffi.new("char *")
         ent = lib.xwii_monitor_poll(wii_monitor)
+        # if null, no more wiimotes found
         if ent == ffi.NULL:
             break
-        xwii_devices.append(ent)
-
-def xw_open_ifaces():
-    for path in xwii_devices:
+        # convert each file path into an interface, and open it.
         iface = ffi.new("struct xwii_iface **")
-        lib.xwii_iface_new(iface, path)
+        lib.xwii_iface_new(iface, ent)
         lib.xwii_iface_open(iface[0],
             lib.xwii_iface_available(iface[0]) | lib.XWII_IFACE_WRITABLE)
         xwii_iface.append(iface[0])
@@ -35,17 +35,24 @@ def xw_get_battery(device:int=0):
     lib.xwii_iface_get_battery(xwii_iface[device], battery_level)
     return battery_level[0]
 
-def xw_get_accel(device:int=0):
-    pass
+def xw_get_event(device:int=0):
+    event = ffi.new("struct xwii_event *")
+    lib.xwii_iface_dispatch(xwii_iface[device], event, ffi.sizeof(event[0]))
+    #print(f"event: {event[0].type}")
+    match event[0].type:
+        case lib.XWII_EVENT_ACCEL:
+            print(f"<{event[0].v.abs[0].x:+04d}," + 
+                  f" {event[0].v.abs[0].y:+04d}," + 
+                  f" {event[0].v.abs[0].z:+04d}>")
+        case lib.XWII_EVENT_KEY:
+            if event[0].v.key.state:
+                print(f"key: {event[0].v.key.code}")
 
 # MAIN
 
 xw_enumerate()
-
-print(f"found devices:")
-print_strings(xwii_devices)
-
-xw_open_ifaces()
 print(f"created interfaces: {xwii_iface}")
 
 print(xw_get_battery(0))
+while (1):
+    xw_get_event()
