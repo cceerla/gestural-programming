@@ -1,4 +1,5 @@
 import time
+import os
 from enum import Enum
 from _xwiimote import ffi, lib
 
@@ -53,17 +54,6 @@ def xw_get_event(device:int=0):
     event = ffi.new("struct xwii_event *")
     lib.xwii_iface_dispatch(xwii_iface[device], event, ffi.sizeof(event[0]))
     last_event = event[0]
-    
-    match event[0].type:
-        case lib.XWII_EVENT_ACCEL:
-            #print(f"<{event[0].v.abs[0].x:+04d}," + 
-            #      f" {event[0].v.abs[0].y:+04d}," + 
-            #      f" {event[0].v.abs[0].z:+04d}>")
-            pass
-        case lib.XWII_EVENT_KEY:
-            #if event[0].v.key.state:
-            #    print(f"key: {event[0].v.key.code}")
-            pass
 
 def open_recording(num:int):
     global curr_recording
@@ -73,9 +63,11 @@ def record(x, y, z):
     global curr_recording
     curr_recording.write(f"{curr_time()},{x},{y},{z}\r\n")
 
-def close_recording():
+def close_recording(num:int):
     global curr_recording
     curr_recording.close()
+    os.system(f"xclip -selection clipboard recordings/gesture_{num}.csv")
+    print("Gesture copied to clipboard in CSV format.")
 
 def handle_fsm():
     global XW_state
@@ -99,7 +91,7 @@ def handle_fsm():
                 and last_event.v.key.code == lib.XWII_KEY_A
                 and not last_event.v.key.state):
             XW_state = XWS.WAIT
-            close_recording()
+            close_recording(recording_num)
             recording_num += 1
 
 # MAIN ------------------------------------------------------------------------
