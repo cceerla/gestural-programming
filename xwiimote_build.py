@@ -1105,6 +1105,10 @@ int xwii_monitor_get_fd(struct xwii_monitor *monitor, bool blocking);
  */
 char *xwii_monitor_poll(struct xwii_monitor *monitor);
 
+// END XWIIMOTE
+
+FILE *fdopen(int, const char *);   // from the C <stdio.h>
+int fclose(FILE *);
 
 """)
 # END CDEF
