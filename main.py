@@ -22,10 +22,14 @@ print(wiimotes)
 for i in range(0,800):
     for wiimote in wiimotes:
         wiimote.process_event()
-    #choreo.check_all_recvs(wiimotes)
+        if (len(wiimote.recvs) > 0):
+            arrow = choreo.create_arrow(wiimotes, wiimote.recvs[0], True)
+            if (arrow):
+                arrows.append(arrow)
     #print(f"{wiimotes[0].state} ({wiimotes[0].last_event.time})")
     #print(wiimotes[0].last_event)
-print("gah?")
+#choreo.check_all_recvs(wiimotes)
 for wiimote in wiimotes:
     print(f"s: {wiimote.sends} r:{wiimote.recvs}")
 choreo.check_trailing_sends(wiimotes)
+print(arrows)
