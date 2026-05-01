@@ -34,3 +34,32 @@ $ pyenv activate wiivenv
 
 - run the file:
 $ sudo -E python3 wiitest.py
+
+# wiimote class
+
+Wiimote:
+```py
+    WiimoteLive(player: int, iface: CData)
+    # creates a wiimote which gets live inputs from a physical device.
+    # player is an integer representing the index of the wiimote in a list
+    #   (or some other relevant numeric identifier.)
+    # iface is an xwiimote iface.
+
+    WiimoteSim(player: int, filename: str)
+    # creates a wiimote which gets simulated inputs from a file.
+    # player is an integer representing the index of the wiimote in a list
+    #   (or some other relevant numeric identifier.)
+    # filename is a text file containing raw data. it should be a csv file.
+    
+    .process_event()
+    # this method loads an event, then runs whatever method is relevant
+    # to process that event and modify the wiimote's internal state.
+    # this should be run constantly in a loop:
+    for wiimote in wiimotes:
+        wiimote.process_event()
+
+    .init_events(sends: list[Gesturevent], recvs: list[Gesturevent])
+    # this method is available for debugging. you can use it to
+    # manually set the buffers of send/receive events inside of a wiimote.
+
+```

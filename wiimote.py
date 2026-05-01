@@ -6,6 +6,7 @@ import string
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from _xwiimote import ffi, lib
+from collections import deque
 
 ### TODO LIST -------------------------------
 #   define the constructors for the two different types of wiimotes
@@ -31,6 +32,16 @@ class Wiivent:
         elif self.wv_type == lib.XWII_EVENT_KEY:
             return self.key
 
+class Gesturevent:
+    def __init__(self, timestamp: float, target: int):
+        self.timestamp = timestamp
+        self.target = target
+
+    def __str__(self):
+        return f"Gesturevent @t={self.timestamp} -> {self.target}"
+    def __repr__(self):
+        return self.__str__()
+
 class GPState(Enum):
     WAIT = 0
     CIRCLEOUT = 1
@@ -49,6 +60,12 @@ class Wiimote:
         self.last_move = 0
         self.last_event = None
         self.player = player
+        if player == 0:
+            self.target = 1
+        if player == 1:
+            self.target = 0
+        self.sends = deque()
+        self.recvs = deque()
         self.state = GPState.WAIT
 
     def __str__(self):
@@ -85,6 +102,7 @@ class Wiimote:
         elif (self.state is GPState.SWINGDOWN and
               at_rest):
             print(f"detected SWING ({self.last_event.time}) -----------------")
+            self.sends.appendleft(Gesturevent(self.last_event.time, self.target))
             self.state = GPState.WAIT
 
         elif (self.state is GPState.WAIT and
@@ -104,6 +122,7 @@ class Wiimote:
         elif (self.state is GPState.CIRCLEBACK and
               at_rest):
             print(f"detected CIRCLE ({self.last_event.time}) ------------------")
+            self.recvs.appendleft(Gesturevent(self.last_event.time, self.target))
             self.state = GPState.WAIT
 
         elif (at_rest):
@@ -111,8 +130,16 @@ class Wiimote:
 
     def process_event(self):
         self.load_event()
-        if self.last_event.wv_type is lib.XWII_EVENT_ACCEL:
+        if self.last_event is None:
+            # wii remote has stopped receiving events/data
+            # reasonable thing to do here is nothing
+            pass
+        elif self.last_event.wv_type is lib.XWII_EVENT_ACCEL:
             self.parse_gesture()
+
+    def init_events(self, sends: deque[Gesturevent], recvs: deque[Gesturevent]):
+        self.sends = sends
+        self.recvs = recvs
 
 # wii remote that takes its inputs from an actual interface
 class WiimoteLive(Wiimote):
@@ -142,7 +169,9 @@ class WiimoteSim(Wiimote):
     def load_event(self):
         data = self.source.readline().split(',')
         if (len(data) < 2):
-           sys.exit() 
+            #sys.exit() 
+            self.last_event = None
+            return
         if (data[1] == 'A'):
             ispressed = (data[2] == 'PRESSED')
             self.last_event = (
@@ -154,21 +183,3 @@ class WiimoteSim(Wiimote):
                         acc=(float(data[1]), float(data[2]),
                              float(data[3]), float(data[10]))))
 
-wiimotes = []
-
-if (len(sys.argv) > 1):
-    i = 0
-    for filename in sys.argv[1:]:
-        i+= 1
-        wiimotes.append(WiimoteSim(i, filename))
-
-print(wiimotes)
-
-event0 = Wiivent(lib.XWII_EVENT_KEY, 0, key=(lib.XWII_KEY_A, True))
-event1 = Wiivent(lib.XWII_EVENT_KEY, 0, acc=(0,0,100))
-#print(event1.data())
-
-while 1:
-    wiimotes[0].process_event()
-    #print(f"{wiimotes[0].state} ({wiimotes[0].last_event.time})")
-    #print(wiimotes[0].last_event)
