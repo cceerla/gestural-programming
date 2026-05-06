@@ -54,6 +54,12 @@ p_z = 0
 g_x = 0 # gravity
 g_y = 0
 g_z = 0
+r_x = 0 # last raw acc
+r_y = 0
+r_z = 0
+i_x = 0 # impulse (not normalized)
+i_y = 0
+i_z = 0
 
 def curr_time():
     return time.time() - start_time
@@ -107,7 +113,7 @@ def open_recording(num:int):
 def record():
     global curr_recording
     curr_recording.write(f"{curr_time()},{a_x},{a_y},{a_z}," + 
-        f"{v_x},{v_y},{v_z},{p_x},{p_y},{p_z},{magnitude}\r\n")
+        f"{v_x},{v_y},{v_z},{i_x},{i_y},{i_z},{magnitude}\r\n")
 
 def close_recording(num:int):
     global curr_recording
@@ -137,6 +143,12 @@ def update_stats(last_event):
     global p_x
     global p_y
     global p_z
+    global r_x
+    global r_y
+    global r_z
+    global i_x
+    global i_y
+    global i_z
 
     get_gravity(last_event.v.abs[0].x,
                 last_event.v.abs[0].y,
@@ -154,6 +166,12 @@ def update_stats(last_event):
             a_x = 0
             a_y = 0
             a_z = 0
+        i_x = last_event.v.abs[0].x - r_x
+        i_y = last_event.v.abs[0].y - r_y
+        i_z = last_event.v.abs[0].z - r_z
+        r_x = last_event.v.abs[0].x
+        r_y = last_event.v.abs[0].y
+        r_z = last_event.v.abs[0].z
         v_x += (a_x - g_x)/10
         v_y += (a_y - g_y)/10
         v_z += (a_z - g_z)/10
@@ -268,6 +286,8 @@ print(f"created interfaces: {xwii_iface}")
 if len(xwii_iface) < 1:
     print("no wii remotes detected. terminating...")
     sys.exit()
+
+#print(xw_get_battery())
 
 while (1):
     last_event = xw_get_event()

@@ -51,12 +51,13 @@ class GPState(Enum):
     SWINGDOWN = 5
 
 class Wiimote:
+    max_players = 4
     thresh = 40
     mag_thresh = 30
     timeout = .1
     # src: https://stackoverflow.com/questions/4814523/abstractmethod-is-not-defined
     def __init__(self, player:int):
-        self.grav = (0,0,0)
+        self.prev_acc = (0,0,0)
         self.last_move = 0
         self.last_event = None
         self.player = player
@@ -67,6 +68,7 @@ class Wiimote:
         self.sends = deque()
         self.recvs = deque()
         self.state = GPState.WAIT
+        self.start = time.time()
 
     def __str__(self):
         return f"Wiimote (P{self.player})"
@@ -74,19 +76,22 @@ class Wiimote:
     def __repr__(self):
         return self.__str__()
 
-    def get_magnitude(x, y, z):
-        return math.sqrt((x * x) + (y * y) + (z * z))
 
     def parse_gesture(self):
         x, y, z, mag = self.last_event.data()
+        #xp = x - self.prev_acc[0]
+        #yp = y - self.prev_acc[1]
+        #zp = z - self.prev_acc[2]
+        self.prev_acc = (x, y, z)
 
         # update time
         if (abs(mag - 100) > Wiimote.thresh):
             self.last_move = self.last_event.time
             at_rest = False
         else:
+            #print(f"{self.last_event.time} - {self.last_move} = {self.last_event.time - self.last_move}")
             at_rest = ((self.last_event.time - self.last_move) > Wiimote.timeout
-                and z > 80)
+                           and z > 80)
         
         # state machine
         if (self.state is GPState.WAIT and
@@ -149,14 +154,14 @@ class WiimoteLive(Wiimote):
 
     def load_event(self):
         event = ffi.new("struct xwii_event *")
-        lib.xwii_iface_dispatch(xwii_iface[device], event, ffi.sizeof(event[0]))
+        lib.xwii_iface_dispatch(self.iface, event, ffi.sizeof(event[0]))
         if (event.type is lib.XWII_EVENT_ACCEL):
             mag = get_magnitude(
                    event.v.abs[0].x, event.v.abs[0].y, event.v.abs[0].z)
-            self.last_event = Wiivent(lib.XWII_EVENT_ACCEL,
+            self.last_event = Wiivent(lib.XWII_EVENT_ACCEL, time.time()-self.start,
                 acc=(event.v.abs[0].x, event.v.abs[0].y, event.v.abs[0].z, mag))
         elif (event.type is lib.XWII_EVENT_KEY):
-            self.last_event = Wiivent(lib.XWII_EVENT_KEY, 
+            self.last_event = Wiivent(lib.XWII_EVENT_KEY, time.time()-self.start,  
                 key=(event.v.key.code, bool(event.v.key.state)))
 
 # wii remote that takes its inputs from a test file
@@ -183,3 +188,25 @@ class WiimoteSim(Wiimote):
                         acc=(float(data[1]), float(data[2]),
                              float(data[3]), float(data[10]))))
 
+def get_magnitude(x, y, z):
+    return math.sqrt((x * x) + (y * y) + (z * z))
+
+def enumerate(wiimotes: list[Wiimote]):
+    wii_monitor = ffi.new("struct xwii_monitor **")
+    wii_monitor = lib.xwii_monitor_new(False, False)
+    if wii_monitor == ffi.NULL:
+        print("in enumerate(): xwii_monitor_new() returned NULL.")
+
+    for player in range(0,Wiimote.max_players):
+        # get device file path
+        ent = ffi.new("char *")
+        ent = lib.xwii_monitor_poll(wii_monitor)
+        # if null, no more wiimotes found
+        if ent == ffi.NULL:
+            break
+        # convert each file path into an interface, and open it.
+        iface = ffi.new("struct xwii_iface **")
+        lib.xwii_iface_new(iface, ent)
+        lib.xwii_iface_open(iface[0],
+            lib.xwii_iface_available(iface[0]) | lib.XWII_IFACE_WRITABLE)
+        wiimotes.append(WiimoteLive(player, iface[0]))
