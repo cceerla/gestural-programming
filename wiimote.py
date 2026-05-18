@@ -50,32 +50,62 @@ class GPState(Enum):
     SWINGOUT = 4
     SWINGDOWN = 5
 
+class DTState(Enum):
+    WAIT = 0
+    PRESS = 1
+    BETWEEN = 2
+    DOUBLE = 3
+
 class Wiimote:
     max_players = 4
     thresh = 40
     mag_thresh = 30
     timeout = .1
+    doubletap_timeout = .6
+    sample = 5
     # src: https://stackoverflow.com/questions/4814523/abstractmethod-is-not-defined
     def __init__(self, player:int):
-        self.prev_acc = (0,0,0)
-        self.last_move = 0
+        # last HID event from the wii remote
         self.last_event = None
+
+        # used in gesture parsing
+        self.last_move = 0
+        self.state = GPState.WAIT
+        self.until_sample = Wiimote.sample
+        self.prev_acc = (0,0,0)
+
+        # used in button parsing
+        self.btnB_dt = DTState.WAIT
+        self.btnB_to = -1
+
+        # used for general housekeeping/integration
+        self.new_events = True
         self.player = player
-        if player == 0:
+        self.start = time.time()
+        
+        # passed on to choreo synthesis
+        if player == 0:     # hard-coded for 2 player case, atm
             self.target = 1
         if player == 1:
             self.target = 0
         self.sends = deque()
         self.recvs = deque()
-        self.state = GPState.WAIT
-        self.start = time.time()
+
+        # button states
+        self.buttons = {"A": False,
+                        "B": False,
+                        "L": False, 
+                        "R": False, 
+                        "U": False, 
+                        "D": False,
+                        "+": False,
+                        "-": False}
 
     def __str__(self):
         return f"Wiimote (P{self.player})"
 
     def __repr__(self):
         return self.__str__()
-
 
     def parse_gesture(self):
         x, y, z, mag = self.last_event.data()
@@ -132,6 +162,48 @@ class Wiimote:
 
         elif (at_rest):
             self.state = GPState.WAIT
+    
+    def parse_doubletap(self):
+        if (self.btnB_dt == DTState.WAIT and self.buttons["B"]):
+            self.btnB_dt = DTState.PRESS
+            self.btnB_to = time.time()
+        elif (self.btnB_dt == DTState.PRESS and not self.buttons["B"]):
+            self.btnB_dt = DTState.BETWEEN
+        elif (self.btnB_dt == DTState.BETWEEN and self.buttons["B"]):
+            self.btnB_dt = DTState.DOUBLE
+        elif (self.btnB_dt != DTState.DOUBLE and 
+              (time.time() - self.btnB_to) > self.doubletap_timeout):
+            self.btnB_dt = DTState.WAIT
+
+    def parse_button(self):
+        key, pressed = self.last_event.data()
+        #print((key, pressed))
+        
+        if (key == lib.XWII_KEY_A):
+            self.buttons["A"] = pressed
+        if (key == lib.XWII_KEY_B):
+            self.buttons["B"] = pressed
+        if (key == lib.XWII_KEY_LEFT):
+            self.buttons["L"] = pressed
+        if (key == lib.XWII_KEY_RIGHT):
+            self.buttons["R"] = pressed
+        if (key == lib.XWII_KEY_UP):
+            self.buttons["U"] = pressed
+        if (key == lib.XWII_KEY_DOWN):
+            self.buttons["D"] = pressed
+        if (key == lib.XWII_KEY_PLUS):
+            self.buttons["+"] = pressed
+        if (key == lib.XWII_KEY_MINUS):
+            self.buttons["-"] = pressed
+
+        self.parse_doubletap()
+        #print(self.buttons)
+        #if pressed:
+        #    print(f"keycode: {key} / {lib.XWII_KEY_LEFT}")
+        
+    def manage_state(self):        
+        if (self.btnB_dt == DTState.DOUBLE):
+            self.new_events = False
 
     def process_event(self):
         self.load_event()
@@ -141,6 +213,10 @@ class Wiimote:
             pass
         elif self.last_event.wv_type is lib.XWII_EVENT_ACCEL:
             self.parse_gesture()
+        elif self.last_event.wv_type is lib.XWII_EVENT_KEY:
+            self.parse_button()
+        
+        self.manage_state()
 
     def init_events(self, sends: deque[Gesturevent], recvs: deque[Gesturevent]):
         self.sends = sends
@@ -155,14 +231,18 @@ class WiimoteLive(Wiimote):
     def load_event(self):
         event = ffi.new("struct xwii_event *")
         lib.xwii_iface_dispatch(self.iface, event, ffi.sizeof(event[0]))
-        if (event.type is lib.XWII_EVENT_ACCEL):
-            mag = get_magnitude(
-                   event.v.abs[0].x, event.v.abs[0].y, event.v.abs[0].z)
-            self.last_event = Wiivent(lib.XWII_EVENT_ACCEL, time.time()-self.start,
-                acc=(event.v.abs[0].x, event.v.abs[0].y, event.v.abs[0].z, mag))
-        elif (event.type is lib.XWII_EVENT_KEY):
-            self.last_event = Wiivent(lib.XWII_EVENT_KEY, time.time()-self.start,  
-                key=(event.v.key.code, bool(event.v.key.state)))
+        if (self.new_events):
+            if (event.type is lib.XWII_EVENT_ACCEL):
+                mag = get_magnitude(
+                       event.v.abs[0].x, event.v.abs[0].y, event.v.abs[0].z)
+                self.last_event = Wiivent(lib.XWII_EVENT_ACCEL, time.time()-self.start,
+                    acc=(event.v.abs[0].x, event.v.abs[0].y, event.v.abs[0].z, mag))
+            elif (event.type is lib.XWII_EVENT_KEY):
+                #print(f"{event.time}: {event.v.key.code}, {event.v.key.state}")
+                self.last_event = Wiivent(lib.XWII_EVENT_KEY, time.time()-self.start,  
+                    key=(event.v.key.code, bool(event.v.key.state)))
+        else:
+            self.last_event = None
 
 # wii remote that takes its inputs from a test file
 class WiimoteSim(Wiimote):
