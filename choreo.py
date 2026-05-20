@@ -29,6 +29,7 @@ class Execution:
         self.wiimotes = wiimotes
         self.arrows = []
 
+# TODO: deprecated
 def create_arrow(wiimotes: list[wm.Wiimote], recv: wm.Gesturevent, can_remove: bool):
     # we use an external index because we can't modify a list
     # while we are traversing it (even if we break as soon as we
@@ -53,6 +54,7 @@ def create_arrow(wiimotes: list[wm.Wiimote], recv: wm.Gesturevent, can_remove: b
 #        wiimotes[recv.target].sends.pop(i)
     return arrow
 
+# TODO: deprecated
 def check_all_recvs(wiimotes: list[wm.Wiimote]):
     for player in wiimotes:
         for recv in player.recvs:
@@ -62,7 +64,13 @@ def check_all_recvs(wiimotes: list[wm.Wiimote]):
             else:
                 print(arrow)
 
+# TODO: deprecated
 def check_trailing_sends(wiimotes: list[wm.Wiimote]):
     for player in wiimotes:
         if len(player.sends) > 0:
             print(f"ERROR: {len(player.sends)} send(s) without matching recv")
+
+# TWO PLAYER CASE (triage)
+
+def match_two(wiimotes: list[wm.Wiimote]):
+    pass
