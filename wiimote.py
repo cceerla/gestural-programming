@@ -91,8 +91,9 @@ class Wiimote:
             self.target = 1
         if player == 1:
             self.target = 0
-        self.sends = deque()
-        self.recvs = deque()
+        self.sends = []
+        self.recvs = []
+        self.vec_clk = 0
 
         # button states
         self.buttons = {"A": False,
@@ -123,33 +124,25 @@ class Wiimote:
         if (self.swing_state == SwState.WAIT and
             -z > Wiimote.thresh):
             self.swing_state = SwState.START
-            print(f"sw: {self.swing_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
         elif (self.swing_state == SwState.START and
               mag - 100 > (2 * Wiimote.mag_thresh) and
               y > Wiimote.thresh):
             self.swing_state = SwState.MOVE
-            print(f"sw: {self.swing_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
         elif (self.swing_state == SwState.MOVE and
               mag - 100 > (2 * Wiimote.mag_thresh) and
               z > Wiimote.thresh):
             self.swing_state = SwState.STOP
-            print(f"sw: {self.swing_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
     
     def parse_circle(self, x:float, y:float, z:float, mag:float):
         if (self.circle_state == CiState.WAIT and
             -x > 2*Wiimote.thresh):
             self.circle_state = CiState.RISE
-            print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
         elif (self.circle_state == CiState.RISE and
               x > Wiimote.thresh):
             self.circle_state = CiState.PEAK
-            print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
         elif (self.circle_state == CiState.PEAK and
               mag - 100 > (Wiimote.mag_thresh)):
             self.circle_state = CiState.FALL
-            print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
-        #if (self.circle_state == CiState.VALLEY):
-        #    print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
 
     def parse_gesture(self):
         x, y, z, mag = self.last_event.data()
@@ -174,13 +167,18 @@ class Wiimote:
             else:
                 # CIRCLE DETECTED!!
                 print(f"detected CIRCLE ({self.last_event.time}) ------------------")
+                self.recvs.append(Gesturevent(0, self.target))
+                self.vec_clk += 1
                 self.circle_state = CiState.WAIT
                 self.swing_state = SwState.WAIT # circle gesture contains a swing gesture
+                                                # when done quickly
             if (self.swing_state != SwState.STOP):
                 self.swing_state = SwState.WAIT
             else:
                 # SWING DETECTED!!
                 print(f"detected SWING ({self.last_event.time}) -----------------")
+                self.sends.append(Gesturevent(0, self.target))
+                self.vec_clk += 1
                 self.swing_state = SwState.WAIT
 
     
@@ -239,7 +237,7 @@ class Wiimote:
         
         self.manage_state()
 
-    def init_events(self, sends: deque[Gesturevent], recvs: deque[Gesturevent]):
+    def init_events(self, sends: list[Gesturevent], recvs: list[Gesturevent]):
         self.sends = sends
         self.recvs = recvs
 
