@@ -9,11 +9,8 @@ from _xwiimote import ffi, lib
 from collections import deque
 
 ### TODO LIST -------------------------------
-#   define the constructors for the two different types of wiimotes
-#   implement load_event() from file
-#   port the functions from wiitest.py
 
-
+# KNOWN ISSUE: WII REMOTE HAS TO BE HELD FLAT OR POINTER UP AS REST POSN FOR GESTURES TO BE RECOGNIZED
 
 class Wiivent:
     def __init__(self, wv_type, time, acc: tuple[int, int, int, int]=None,
@@ -44,15 +41,15 @@ class Gesturevent:
 
 class SwState(Enum):
     WAIT = 0
-    MOVE = 1
-    THRUST = 2
+    START = 1
+    MOVE = 2
+    STOP = 3
 
 class CiState(Enum):
     WAIT = 0
-    FSTMTN = 1
-    VALLEY = 2
-    PEAK = 3
-    SNDMTN = 4
+    RISE = 1
+    PEAK = 2
+    FALL = 3
 
 class DTState(Enum):
     WAIT = 0
@@ -62,9 +59,9 @@ class DTState(Enum):
 
 class Wiimote:
     max_players = 4
-    thresh = 50
-    mag_thresh = 100
-    timeout = .1
+    thresh = 40
+    mag_thresh = 50 # TODO: this threshold differs from person to person
+    timeout = .05
     doubletap_timeout = .6
     sample = 5
     # src: https://stackoverflow.com/questions/4814523/abstractmethod-is-not-defined
@@ -78,6 +75,7 @@ class Wiimote:
         self.circle_state = CiState.WAIT
         self.until_sample = Wiimote.sample
         self.prev_acc = (0,0,0)
+        self.at_rest = False
 
         # used in button parsing
         self.btnB_dt = DTState.WAIT
@@ -116,44 +114,39 @@ class Wiimote:
         # update time
         if (abs(mag - 100) > (Wiimote.mag_thresh/2)):
             self.last_move = self.last_event.time
-            at_rest = False
+            self.at_rest = False
         else:
-            at_rest = ((self.last_event.time - self.last_move) > Wiimote.timeout
+            self.at_rest = ((self.last_event.time - self.last_move) > Wiimote.timeout
                            and z > 80)
 
     def parse_swing(self, x:float, y:float, z:float, mag:float):
         if (self.swing_state == SwState.WAIT and
-            mag - 100 > (2 * Wiimote.mag_thresh) and
-            y > Wiimote.thresh):
+            -z > Wiimote.thresh):
+            self.swing_state = SwState.START
+            print(f"sw: {self.swing_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
+        elif (self.swing_state == SwState.START and
+              mag - 100 > (2 * Wiimote.mag_thresh) and
+              y > Wiimote.thresh):
             self.swing_state = SwState.MOVE
             print(f"sw: {self.swing_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
         elif (self.swing_state == SwState.MOVE and
               mag - 100 > (2 * Wiimote.mag_thresh) and
               z > Wiimote.thresh):
-            self.swing_state = SwState.THRUST
-            print(f"detected SWING ({self.last_event.time}) -----------------")
+            self.swing_state = SwState.STOP
             print(f"sw: {self.swing_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
     
     def parse_circle(self, x:float, y:float, z:float, mag:float):
         if (self.circle_state == CiState.WAIT and
-            mag - 100 > (Wiimote.mag_thresh)):
-            self.circle_state = CiState.FSTMTN
+            -x > 2*Wiimote.thresh):
+            self.circle_state = CiState.RISE
             print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
-        elif (self.circle_state == CiState.FSTMTN and
-              (mag < 100 or
-               y > Wiimote.thresh and x > Wiimote.thresh
-               )):
-            self.circle_state = CiState.VALLEY
-            print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
-        elif (self.circle_state == CiState.VALLEY and
-              abs(x) > (Wiimote.thresh) and
-              mag - 100 > (Wiimote.mag_thresh)):
+        elif (self.circle_state == CiState.RISE and
+              x > Wiimote.thresh):
             self.circle_state = CiState.PEAK
             print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
         elif (self.circle_state == CiState.PEAK and
               mag - 100 > (Wiimote.mag_thresh)):
-            self.circle_state = CiState.SNDMTN
-            print(f"detected CIRCLE ({self.last_event.time}) ------------------")
+            self.circle_state = CiState.FALL
             print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
         #if (self.circle_state == CiState.VALLEY):
         #    print(f"ci: {self.circle_state}, {x:.1f} {y:.1f} {z:.1f} {mag:.1f} {self.last_event.time}")
@@ -169,7 +162,27 @@ class Wiimote:
         self.parse_circle(x, y, z, mag)
         
         # interactions
-        #if ()
+
+        # reset swing if partially through circle
+        if (self.circle_state == CiState.PEAK):
+            self.swing_state = SwState.WAIT
+
+        # when at rest, check if we saw a gesture / clean up partial gestures
+        if (self.at_rest):
+            if (self.circle_state != CiState.FALL):
+                self.circle_state = CiState.WAIT
+            else:
+                # CIRCLE DETECTED!!
+                print(f"detected CIRCLE ({self.last_event.time}) ------------------")
+                self.circle_state = CiState.WAIT
+                self.swing_state = SwState.WAIT # circle gesture contains a swing gesture
+            if (self.swing_state != SwState.STOP):
+                self.swing_state = SwState.WAIT
+            else:
+                # SWING DETECTED!!
+                print(f"detected SWING ({self.last_event.time}) -----------------")
+                self.swing_state = SwState.WAIT
+
     
     def parse_doubletap(self):
         if (self.btnB_dt == DTState.WAIT and self.buttons["B"]):
