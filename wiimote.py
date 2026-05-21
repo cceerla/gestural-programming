@@ -29,21 +29,26 @@ class Wiivent:
         elif self.wv_type == lib.XWII_EVENT_KEY:
             return self.key
 
+class GVType(Enum):
+    SEND = 0
+    RECV = 1
+    END  = 2
+
 class Gesturevent:
-    def __init__(self, timestamp: float, target: int):
-        self.timestamp = timestamp
+    def __init__(self, kind: GVType, target: int):
+        self.kind = kind
         self.target = target
 
     def __str__(self):
-        return f"Gesturevent @t={self.timestamp} -> {self.target}"
+        return f"Gesturevent {self.kind} -> {self.target}"
     def __repr__(self):
         return self.__str__()
 
 class SwState(Enum):
-    WAIT = 0
+    WAIT  = 0
     START = 1
-    MOVE = 2
-    STOP = 3
+    MOVE  = 2
+    STOP  = 3
 
 class CiState(Enum):
     WAIT = 0
@@ -91,8 +96,7 @@ class Wiimote:
             self.target = 1
         if player == 1:
             self.target = 0
-        self.sends = []
-        self.recvs = []
+        self.events = []
         self.vec_clk = 0
 
         # button states
@@ -167,7 +171,7 @@ class Wiimote:
             else:
                 # CIRCLE DETECTED!!
                 print(f"detected CIRCLE ({self.last_event.time}) ------------------")
-                self.recvs.append(Gesturevent(0, self.target))
+                self.events.append(Gesturevent(GVType.RECV, self.target))
                 self.vec_clk += 1
                 self.circle_state = CiState.WAIT
                 self.swing_state = SwState.WAIT # circle gesture contains a swing gesture
@@ -177,7 +181,7 @@ class Wiimote:
             else:
                 # SWING DETECTED!!
                 print(f"detected SWING ({self.last_event.time}) -----------------")
-                self.sends.append(Gesturevent(0, self.target))
+                self.events.append(Gesturevent(GVType.SEND, self.target))
                 self.vec_clk += 1
                 self.swing_state = SwState.WAIT
 
@@ -237,9 +241,8 @@ class Wiimote:
         
         self.manage_state()
 
-    def init_events(self, sends: list[Gesturevent], recvs: list[Gesturevent]):
-        self.sends = sends
-        self.recvs = recvs
+    def init_events(self, events: list[Gesturevent]):
+        self.events = events
 
 # wii remote that takes its inputs from an actual interface
 class WiimoteLive(Wiimote):

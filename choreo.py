@@ -19,8 +19,8 @@ class Arrow:
         self.recv = recv
 
     def __str__(self):
-        return (f"{self.recv.target} ({self.send.timestamp}) -->" + 
-                f" {self.send.target} ({self.recv.timestamp})")
+        return (f"{self.recv.target} -->" + 
+                f" {self.send.target}")
     def __repr__(self):
         return self.__str__()
 
@@ -72,5 +72,30 @@ def check_trailing_sends(wiimotes: list[wm.Wiimote]):
 
 # TWO PLAYER CASE (triage)
 
-def match_two(wiimotes: list[wm.Wiimote]):
-    pass
+# precond: len(wiimotes) == 2
+def make_arrows(wiimotes: list[wm.Wiimote]) -> list[Arrow]:
+    p0 = wiimotes[0].events
+    p1 = wiimotes[1].events
+    p0_turn = True
+    curr_recv = None
+    p0_i = 0
+
+    arrows = []
+    
+    while (p0_i < len(p0)):
+        if (p0[p0_i].kind == wm.GVType.RECV):
+            if (p1[0].kind == wm.GVType.SEND):
+                # make an arrow
+                arrows.append(Arrow(p1.pop(0), p0.pop(p0_i)))
+            elif (p0[0].kind == wm.GVType.RECV):
+                # crash out and kill everyone
+                print("Everyone called recv and is waiting: deadlock!!")
+                print(f"p0{p0}\np1{p1}\nar{arrows}")
+                return None
+        else:
+            p0_i += 1
+    if (len(p0) > 0 or len(p1) > 0):
+        print("There are unmatched sends :(")
+        print(f"p0{p0}\np1{p1}\nar{arrows}")
+        return None
+    return arrows
