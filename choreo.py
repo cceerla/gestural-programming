@@ -1,5 +1,6 @@
 import os
 import sys
+from enum import Enum
 import wiimote as wm
 
 # data structure for a recorded send 
@@ -19,50 +20,61 @@ class Arrow:
         self.recv = recv
 
     def __str__(self):
-        return (f"{self.recv.target} ({self.send.timestamp}) -->" + 
-                f" {self.send.target} ({self.recv.timestamp})")
+        return (f"{self.recv.target} -->" + 
+                f" {self.send.target}")
     def __repr__(self):
         return self.__str__()
 
-class Execution:
-    def __init__(self, wiimotes):
-        self.wiimotes = wiimotes
-        self.arrows = []
+class Outcome(Enum):
+    VALID = 0
+    BADSEND = 1
+    BADRECV = 2
 
-def create_arrow(wiimotes: list[wm.Wiimote], recv: wm.Gesturevent, can_remove: bool):
-    # we use an external index because we can't modify a list
-    # while we are traversing it (even if we break as soon as we
-    # modify it)
-    i = 0
-    arrow = None
-    receiver = None
-    for send in wiimotes[recv.target].sends: #type(send) is Gesturevent
-        # if prior send exists, create the arrow
-        if send.timestamp < recv.timestamp:
-            arrow = Arrow(send, recv)
-            receiver = send.target
-            wiimotes[recv.target].sends.remove(send)
-            break
-        i += 1
-        print(f"{can_remove} and {receiver}")
-    if can_remove and receiver:
-        wiimotes[receiver].recvs.remove(recv)
-#    if i < len(wiimotes[recv.target].sends):
-        # if loop broke prematurely, then arrow was made
-        # so we remove the send we just put into the arrow
-#        wiimotes[recv.target].sends.pop(i)
-    return arrow
+# TWO PLAYER CASE (triage)
 
-def check_all_recvs(wiimotes: list[wm.Wiimote]):
-    for player in wiimotes:
-        for recv in player.recvs:
-            arrow = create_arrow(wiimotes, recv, False)
-            if arrow is None:
-                print("ERROR: recv without matching send")
+# precond: len(wiimotes) == 2
+def make_arrows(wiimotes: list[wm.Wiimote]) -> tuple[Outcome, list[wm.Gesturevent], list[wm.Gesturevent], list[Arrow]]:
+    p0 = wiimotes[0].events
+    p1 = wiimotes[1].events
+    p0_turn = True
+    p0_i = 0
+    p1_i = 0
+
+    arrows = []
+    
+    while (p0_i < len(p0) and p1_i < len(p1)): # (while we're still in at least one)
+        if (p0_turn):
+            if (p0[p0_i].kind == wm.GVType.RECV): # if we hit a recv,
+                # extra logic on this side: if both blocked, crash out
+                # (we only need this once)
+                if (p1[0].kind == wm.GVType.RECV):
+                    print("Both are waiting to recv: womp womp.")
+                    return (Outcome.BADRECV, p0, p1, arrows)
+                else:
+                    arrows.append(Arrow(p1.pop(0), p0.pop(p0_i)))
+                    p0_i -= 1
+                # block
+                p0_turn = False
             else:
-                print(arrow)
-
-def check_trailing_sends(wiimotes: list[wm.Wiimote]):
-    for player in wiimotes:
-        if len(player.sends) > 0:
-            print(f"ERROR: {len(player.sends)} send(s) without matching recv")
+                if (p1[0].kind == wm.GVType.RECV): # if we hit a send, we see if
+                                                   # we can pair it w a recv
+                                                   # at the beginning of the other
+                    arrows.append(Arrow(p0.pop(p0_i), p1.pop(0)))
+                else:
+                    # if the other isn't blocked, keep going until we block
+                    p0_i += 1
+        else: # when p1 isn't blocked, we do the reciprocal
+            if (p1[p1_i].kind == wm.GVType.RECV):
+                if (p1[0].kind == wm.GVType.SEND):
+                    arrows.append(Arrow(p0.pop(0), p1.pop(p0_i)))
+                    p0_i -= 1
+                p0_turn = True
+            else:
+                if (p0[0].kind == wm.GVType.RECV):
+                    arrows.append(Arrow(p1.pop(p1_i), p0.pop(0)))
+                else:
+                    p1_i += 1
+    if (len(p0) > 0 or len(p1) > 0):
+        print("Unmatched sends: womp womp.")
+        return (Outcome.BADSEND, p0, p1, arrows)
+    return (Outcome.VALID, p0, p1, arrows)
