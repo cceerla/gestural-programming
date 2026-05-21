@@ -21,17 +21,73 @@ def run_tests(tests:list[EventLog]):
         wiimotes[0].init_events(test.events_0)
         wiimotes[1].init_events(test.events_1)
 
+        print("-------------------------------------------------------")
         print(test.name)
+        print("-------------------------------------------------------")
         arrows = choreo.make_arrows(wiimotes)
-        if (arrows):
-            print(f"Arrows created: \n{arrows}")
+        if (arrows[0] == choreo.Outcome.VALID):
+            print(f"Valid. Arrows created: \n{arrows[3]}")
         else:
-            print("Invalid execution.")
+            print(f"Invalid execution.")
+            if (arrows[0] == choreo.Outcome.BADSEND):
+                print(f"Trailing sends.")
+            else:
+                print(f"Recv purgatory.")
+            print(f"0: {arrows[1]}\n1: {arrows[2]}\nA: {arrows[3]}")
 
 run_tests(
-        [EventLog("Good: Single S/R",
-                  [wm.Gesturevent(wm.GVType.SEND, 1)],
-                  [wm.Gesturevent(wm.GVType.RECV, 0)],
-                  )
+        [
+        EventLog("Good: Empty Execution",
+            [],
+            [],
+            ),
+        EventLog("Good: Single S/R",
+            [wm.Gesturevent(wm.GVType.SEND, 1)],
+            [wm.Gesturevent(wm.GVType.RECV, 0)],
+            ),
+        EventLog("Good: Reciprocal S/R",
+            [wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.RECV, 1)],
+            [wm.Gesturevent(wm.GVType.RECV, 0),
+             wm.Gesturevent(wm.GVType.SEND, 0)],
+            ),
+        EventLog("Good: Series of Sends and Recvs",
+            [wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.RECV, 1)],
+            [wm.Gesturevent(wm.GVType.RECV, 0),
+             wm.Gesturevent(wm.GVType.SEND, 0),
+             wm.Gesturevent(wm.GVType.RECV, 0)],
+            ),
+        EventLog("Bad: Unpaired Send 0",
+            [wm.Gesturevent(wm.GVType.SEND, 1)],
+            [],
+            ),
+        EventLog("Bad: Unpaired Recv 0",
+            [wm.Gesturevent(wm.GVType.RECV, 1)],
+            [],
+            ),
+        EventLog("Bad: Unpaired Recv 1",
+            [],
+            [wm.Gesturevent(wm.GVType.RECV, 0)],
+            ),
+        EventLog("Bad: Unpaired Send 1",
+            [],
+            [wm.Gesturevent(wm.GVType.SEND, 0)],
+            ),
+        EventLog("Bad: Two Recvs",
+            [wm.Gesturevent(wm.GVType.RECV, 1)],
+            [wm.Gesturevent(wm.GVType.RECV, 0)],
+            ),
+        EventLog("Bad: Two Sends",
+            [wm.Gesturevent(wm.GVType.SEND, 1)],
+            [wm.Gesturevent(wm.GVType.SEND, 0)],
+            ),
+        EventLog("Bad: Causal Loop",
+            [wm.Gesturevent(wm.GVType.RECV, 1),
+             wm.Gesturevent(wm.GVType.SEND, 1)],
+            [wm.Gesturevent(wm.GVType.RECV, 0),
+             wm.Gesturevent(wm.GVType.SEND, 0)],
+            ),
         ]
     )
