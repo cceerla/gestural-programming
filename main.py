@@ -28,19 +28,15 @@ while (1):
     eventsOngoing = False
     for wiimote in wiimotes:
         wiimote.process_event()
-        if (len(wiimote.recvs) > 0):
-            arrow = choreo.create_arrow(wiimotes, wiimote.recvs[0], True)
-            if (arrow):
-                arrows.append(arrow)
-                print(f"arrow found: {arrow}")
         if (wiimote.last_event is not None):
             eventsOngoing = True
     if (not eventsOngoing):
         break
 
-print(f"execution complete. end state:")
-#choreo.check_all_recvs(wiimotes)
-for wiimote in wiimotes:
-    print(f"{wiimote}: s: {wiimote.sends} r:{wiimote.recvs}")
-choreo.check_trailing_sends(wiimotes)
-print(arrows)
+if (len(wiimotes) != 2):
+    print("execution complete. synthesis is only supported for 2 players; terminating.")
+    sys.exit()
+
+print(f"execution complete. synthesizing:")
+choreography = choreo.synthesize(wiimotes)
+print(choreography)
