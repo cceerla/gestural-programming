@@ -40,7 +40,15 @@ class Gesturevent:
         self.target = target
 
     def __str__(self):
-        return f"Gesturevent {self.kind} -> {self.target}"
+        output = ""
+        if (self.kind == GVType.SEND):
+            output += "SEND>"
+        elif (self.kind == GVType.RECV):
+            output += "RECV>"
+        elif (self.kind == GVType.END):
+            output += "END"
+            return output
+        return output + f"{self.target}"
     def __repr__(self):
         return self.__str__()
 
@@ -63,13 +71,11 @@ class DTState(Enum):
     DOUBLE = 3
 
 class Wiimote:
-    max_players = 4
-    thresh = 40
+    max_players = 4 # a relic of future plans
+    thresh = 40     # threshold for direction vector
     mag_thresh = 50 # TODO: this threshold differs from person to person
-    timeout = .05
-    doubletap_timeout = .6
-    sample = 5
-    # src: https://stackoverflow.com/questions/4814523/abstractmethod-is-not-defined
+    timeout = .1           # seconds
+    doubletap_timeout = .6 # seconds
     def __init__(self, player:int):
         # last HID event from the wii remote
         self.last_event = None
@@ -78,8 +84,6 @@ class Wiimote:
         self.last_move = 0
         self.swing_state = SwState.WAIT
         self.circle_state = CiState.WAIT
-        self.until_sample = Wiimote.sample
-        self.prev_acc = (0,0,0)
         self.at_rest = False
 
         # used in button parsing
@@ -92,12 +96,11 @@ class Wiimote:
         self.start = time.time()
         
         # passed on to choreo synthesis
-        if player == 0:     # hard-coded for 2 player case, atm
+        self.events = []
+        if player == 0:     # hard-coded for 2 player case, at the moment
             self.target = 1
         if player == 1:
             self.target = 0
-        self.events = []
-        self.vec_clk = 0
 
         # button states
         self.buttons = {"A": False,
@@ -170,9 +173,7 @@ class Wiimote:
                 self.circle_state = CiState.WAIT
             else:
                 # CIRCLE DETECTED!!
-                print(f"detected CIRCLE ({self.last_event.time}) ------------------")
                 self.events.append(Gesturevent(GVType.RECV, self.target))
-                self.vec_clk += 1
                 self.circle_state = CiState.WAIT
                 self.swing_state = SwState.WAIT # circle gesture contains a swing gesture
                                                 # when done quickly
@@ -180,9 +181,7 @@ class Wiimote:
                 self.swing_state = SwState.WAIT
             else:
                 # SWING DETECTED!!
-                print(f"detected SWING ({self.last_event.time}) -----------------")
                 self.events.append(Gesturevent(GVType.SEND, self.target))
-                self.vec_clk += 1
                 self.swing_state = SwState.WAIT
 
     
