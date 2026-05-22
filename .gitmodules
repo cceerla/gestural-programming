@@ -1,0 +1,3 @@
+[submodule "plantuml"]
+	path = plantuml
+	url = git@github.com:plantuml/plantuml.git

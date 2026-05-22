@@ -3,6 +3,7 @@ import sys
 #from wiimote import Wiimote, WiimoteSim, WiimoteLive
 import wiimote as wm
 import choreo
+import display
 
 wiimotes = []
 arrows = []
@@ -40,3 +41,6 @@ if (len(wiimotes) != 2):
 print(f"execution complete. synthesizing:")
 choreography = choreo.synthesize(wiimotes)
 print(choreography)
+display.make_chart("choreo", choreography)
+display.view_chart("choreo")
+display.delete_chart_raw("choreo")

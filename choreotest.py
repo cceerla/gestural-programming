@@ -1,9 +1,12 @@
 import os
 import sys
+import re
 #from wiimote import Wiimote, WiimoteSim, WiimoteLive
 import wiimote as wm
 import choreo
-from collections import deque
+import display
+
+alphanum = re.compile('[^a-zA-Z0-9]')
 
 class EventLog:
     def __init__(self, name: str, events_0:list[wm.Gesturevent], events_1:list[wm.Gesturevent]):
@@ -12,6 +15,8 @@ class EventLog:
         self.events_1 = events_1
 
 def run_tests(tests:list[EventLog]):
+    global alphanum
+
     for test in tests:
         wiimotes = [
             wm.WiimoteSim(0, "recordings/empty.csv"),
@@ -26,6 +31,9 @@ def run_tests(tests:list[EventLog]):
         print("-------------------------------------------------------")
         choreography = choreo.synthesize(wiimotes)
         print(choreography)
+        if (choreography.outcome == choreo.Outcome.VALID):
+            stripped_name = alphanum.sub('', test.name)
+            display.chart_choreography(f"test_out/{stripped_name}", choreography)
 
 run_tests(
         [
@@ -49,6 +57,20 @@ run_tests(
              wm.Gesturevent(wm.GVType.RECV, 1)],
             [wm.Gesturevent(wm.GVType.RECV, 0),
              wm.Gesturevent(wm.GVType.SEND, 0),
+             wm.Gesturevent(wm.GVType.RECV, 0)],
+            ),
+        EventLog("Good: Long series of Sends for Recvs",
+            [wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.SEND, 1),
+             wm.Gesturevent(wm.GVType.SEND, 1)],
+            [wm.Gesturevent(wm.GVType.RECV, 0),
+             wm.Gesturevent(wm.GVType.RECV, 0),
+             wm.Gesturevent(wm.GVType.RECV, 0),
+             wm.Gesturevent(wm.GVType.RECV, 0),
+             wm.Gesturevent(wm.GVType.RECV, 0),
              wm.Gesturevent(wm.GVType.RECV, 0)],
             ),
         EventLog("Bad: Unpaired Send 0",

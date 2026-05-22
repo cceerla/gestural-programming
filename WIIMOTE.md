@@ -1,4 +1,6 @@
-# Setting up the Wii Remote support
+# Setting up the environment
+
+## Wii Remote Support
 
 - Install XWiimote:
 $ sudo apt-get xwiimote
@@ -22,6 +24,15 @@ $ make
 $ sudo make install
 this should put libxwiimote.so in usr/local/lib; if it doesn't, you can move it there manually
 
+## Diagram Generator: PlantUML
+in the gestural-programming directory, run:
+$ wget https://github.com/plantuml/plantuml/releases/download/v1.2026.4/plantuml.jar
+
+install java:
+$ sudo apt install default-jre
+
+## Python
+
 - Make a venv:
 install pyenv
 $ curl -fsSL https://pyenv.run | bash
@@ -33,7 +44,7 @@ $ pyenv activate wiivenv
 - After editing the CFFI, run pip install .
 
 - run the file:
-$ sudo -E python3 wiitest.py
+$ sudo $(printenv VIRTUAL_ENV)/bin/python3 $1 $2 $3 $4 $5 $6 $7 $8 $9
 
 # wiimote class
 
