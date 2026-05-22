@@ -89,6 +89,8 @@ class Wiimote:
         # used in button parsing
         self.btnB_dt = DTState.WAIT
         self.btnB_to = -1
+        self.btn1_dt = DTState.WAIT
+        self.btn1_to = -1
 
         # used for general housekeeping/integration
         self.new_events = True
@@ -110,7 +112,8 @@ class Wiimote:
                         "U": False, 
                         "D": False,
                         "+": False,
-                        "-": False}
+                        "-": False,
+                        "1": False}
 
     def __str__(self):
         return f"Wiimote (P{self.player})"
@@ -185,7 +188,7 @@ class Wiimote:
                 self.swing_state = SwState.WAIT
 
     
-    def parse_doubletap(self):
+    def parse_doubletap_b(self):
         if (self.btnB_dt == DTState.WAIT and self.buttons["B"]):
             self.btnB_dt = DTState.PRESS
             self.btnB_to = time.time()
@@ -196,6 +199,20 @@ class Wiimote:
         elif (self.btnB_dt != DTState.DOUBLE and 
               (time.time() - self.btnB_to) > self.doubletap_timeout):
             self.btnB_dt = DTState.WAIT
+
+    # evil copy-pasted code because i don't know how to do the python equivalent
+    # of passing a pointer
+    def parse_doubletap_1(self):
+        if (self.btn1_dt == DTState.WAIT and self.buttons["1"]):
+            self.btn1_dt = DTState.PRESS
+            self.btn1_to = time.time()
+        elif (self.btn1_dt == DTState.PRESS and not self.buttons["1"]):
+            self.btn1_dt = DTState.BETWEEN
+        elif (self.btn1_dt == DTState.BETWEEN and self.buttons["1"]):
+            self.btn1_dt = DTState.DOUBLE
+        elif (self.btn1_dt != DTState.DOUBLE and 
+              (time.time() - self.btn1_to) > self.doubletap_timeout):
+            self.btn1_dt = DTState.WAIT
 
     def parse_button(self):
         key, pressed = self.last_event.data()
@@ -217,8 +234,11 @@ class Wiimote:
             self.buttons["+"] = pressed
         if (key == lib.XWII_KEY_MINUS):
             self.buttons["-"] = pressed
+        if (key == lib.XWII_KEY_ONE):
+            self.buttons["1"] = pressed
 
-        self.parse_doubletap()
+        self.parse_doubletap_b()
+        self.parse_doubletap_1()
         #print(self.buttons)
         #if pressed:
         #    print(f"keycode: {key} / {lib.XWII_KEY_LEFT}")
@@ -226,6 +246,10 @@ class Wiimote:
     def manage_state(self):        
         if (self.btnB_dt == DTState.DOUBLE):
             self.new_events = False
+        if (self.btn1_dt == DTState.DOUBLE):
+            if (len(self.events) > 0):
+                self.events.pop()
+            self.btn1_dt = DTState.WAIT
 
     def process_event(self):
         self.load_event()

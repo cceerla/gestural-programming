@@ -60,6 +60,9 @@ while (1):
         if (len(wiimote.events) > evt_len[wiimote.player]):
             print(f"Detected event: Player {wiimote.player} {wiimote.events[-1]}")
             evt_len[wiimote.player] += 1
+        elif (len(wiimote.events) < evt_len[wiimote.player]):
+            print(f"Detected event: Player {wiimote.player} Undid the last event. New order:\n{wiimote.events}")
+            evt_len[wiimote.player] -= 1
         if (wiimote.last_event is not None):
             eventsOngoing = True
     if (not eventsOngoing):
