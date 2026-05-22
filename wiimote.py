@@ -270,10 +270,9 @@ class WiimoteLive(Wiimote):
 
 # wii remote that takes its inputs from a test file
 class WiimoteSim(Wiimote):
-    def __init__(self, player: int, filename:str):
+    def __init__(self, player: int, file):
         super().__init__(player)
-        self.filename = filename
-        self.source = open(filename, "r")
+        self.source = file
 
     def load_event(self):
         data = self.source.readline().split(',')

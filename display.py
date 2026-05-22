@@ -41,5 +41,6 @@ def play_random_sound(directory:str):
     # but also adrian brasoveanu's code
     files = [file for file in os.listdir(directory) if '.ogg' in file]
     #os.system(f"play -q {random.choice(files)}")
+    os.environ['SDL_AUDIODRIVER'] = 'pipewire'
     sfx = AudioSegment.from_ogg(f"{directory}/{random.choice(files)}")
     play(sfx)
