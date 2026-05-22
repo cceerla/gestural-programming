@@ -14,6 +14,11 @@ import wiimote as wm
 # no total order: only assuming logical time / causal consistency
 # logical counter
 
+class Outcome(Enum):
+    VALID = 0
+    BADSEND = 1
+    BADRECV = 2
+
 class Arrow:
     def __init__(self, send: wm.Gesturevent, recv: wm.Gesturevent):
         self.send = send
@@ -25,15 +30,35 @@ class Arrow:
     def __repr__(self):
         return self.__str__()
 
-class Outcome(Enum):
-    VALID = 0
-    BADSEND = 1
-    BADRECV = 2
+class Choreography:
+    def __init__(self, outcome:Outcome, hosts:list[list[wm.Gesturevent]], arrows:list[Arrow]):
+        self.outcome = outcome
+        self.hosts = hosts
+        self.arrows = arrows
+
+    def __str__(self):
+        output = ""
+        if (self.outcome == Outcome.VALID):
+            output += "Valid execution.\n"
+            output += f"Arrows: {self.arrows}"
+        elif (self.outcome == Outcome.BADSEND):
+            output += "Invalid Execution; trailing Sends.\n"
+            output += "State at error:\n"
+            for p in range(0, len(self.hosts)):
+                output += f"p{p}: {self.hosts[p]}\n"
+            output += f"Ar: {self.arrows}"
+        elif (self.outcome == Outcome.BADRECV):
+            output += "Invalid Execution; Recv purgatory.\n"
+            output += "State at error:\n"
+            for p in range(0,len(self.hosts)):
+                output += f"p{p}: {self.hosts[p]}\n"
+            output += f"Ar: {self.arrows}"
+        return output
 
 # TWO PLAYER CASE (triage)
 
 # precond: len(wiimotes) == 2
-def make_arrows(wiimotes: list[wm.Wiimote]) -> tuple[Outcome, list[wm.Gesturevent], list[wm.Gesturevent], list[Arrow]]:
+def synthesize(wiimotes: list[wm.Wiimote]) -> Choreography:
     p0 = wiimotes[0].events
     p1 = wiimotes[1].events
     p0_turn = True
@@ -48,8 +73,7 @@ def make_arrows(wiimotes: list[wm.Wiimote]) -> tuple[Outcome, list[wm.Gestureven
                 # extra logic on this side: if both blocked, crash out
                 # (we only need this once)
                 if (p1[0].kind == wm.GVType.RECV):
-                    print("Both are waiting to recv: womp womp.")
-                    return (Outcome.BADRECV, p0, p1, arrows)
+                    return Choreography(Outcome.BADRECV, [p0, p1], arrows)
                 else:
                     arrows.append(Arrow(p1.pop(0), p0.pop(p0_i)))
                     p0_i -= 1
@@ -75,6 +99,5 @@ def make_arrows(wiimotes: list[wm.Wiimote]) -> tuple[Outcome, list[wm.Gestureven
                 else:
                     p1_i += 1
     if (len(p0) > 0 or len(p1) > 0):
-        print("Unmatched sends: womp womp.")
-        return (Outcome.BADSEND, p0, p1, arrows)
-    return (Outcome.VALID, p0, p1, arrows)
+        return Choreography(Outcome.BADSEND, [p0, p1], arrows)
+    return Choreography(Outcome.VALID, [p0, p1], arrows)

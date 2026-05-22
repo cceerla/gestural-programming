@@ -24,16 +24,8 @@ def run_tests(tests:list[EventLog]):
         print("-------------------------------------------------------")
         print(test.name)
         print("-------------------------------------------------------")
-        arrows = choreo.make_arrows(wiimotes)
-        if (arrows[0] == choreo.Outcome.VALID):
-            print(f"Valid. Arrows created: \n{arrows[3]}")
-        else:
-            print(f"Invalid execution.")
-            if (arrows[0] == choreo.Outcome.BADSEND):
-                print(f"Trailing sends.")
-            else:
-                print(f"Recv purgatory.")
-            print(f"0: {arrows[1]}\n1: {arrows[2]}\nA: {arrows[3]}")
+        choreography = choreo.synthesize(wiimotes)
+        print(choreography)
 
 run_tests(
         [
