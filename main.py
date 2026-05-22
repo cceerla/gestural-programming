@@ -10,8 +10,9 @@ evt_len = [0,0,0,0]
 
 class color:
     CYAN = '\033[36m'
-    RED = '\033[31m'
+    PINK = '\033[35m'
     CLEAR = '\033[0m'
+    THIN = '\033[22m'
     BOLD = '\033[1m'
 
 print(f"{color.CYAN}-----------------------------------------------------{color.CLEAR}")
@@ -58,16 +59,28 @@ while (1):
     eventsOngoing = False
     for wiimote in wiimotes:
         wiimote.process_event()
+        if (wiimote.player == 0):
+            print(f"{color.CYAN}", end="")
+        elif (wiimote.player == 1):
+            print(f"{color.PINK}", end="")
         if (len(wiimote.events) > evt_len[wiimote.player]):
-            print(f"Detected event: Player {wiimote.player} {wiimote.events[-1]}")
+            print(f"Player {wiimote.player} ", end="")
+            if (wiimote.events[-1].kind == wm.GVType.SEND):
+                print(f"{color.BOLD}SENT{color.THIN} ", end="")
+            else:
+                print(f"{color.BOLD}RECEIVED{color.THIN} ", end="")
+            print(f"a message!")
             evt_len[wiimote.player] += 1
         elif (len(wiimote.events) < evt_len[wiimote.player]):
-            print(f"Detected event: Player {wiimote.player} Undid the last event. New order:\n{wiimote.events}")
+            print(f"Player {wiimote.player} {color.BOLD}UNDID{color.THIN} their last action. New log:\n{wiimote.events}")
             evt_len[wiimote.player] -= 1
+        print(f"{color.CLEAR}", end="")
         if (wiimote.last_event is not None):
             eventsOngoing = True
     if (not eventsOngoing):
         break
+
+print("")
 
 if (len(wiimotes) != 2):
     print("Execution complete. Final state:")
