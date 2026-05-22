@@ -8,6 +8,12 @@ import display
 wiimotes = []
 arrows = []
 
+class color:
+    CYAN = '\033[36m'
+    RED = '\033[31m'
+    CLEAR = '\033[0m'
+    BOLD = '\033[1m'
+
 if (len(sys.argv) > 1):
     i = 0
     for filename in sys.argv[1:]:
@@ -16,14 +22,29 @@ if (len(sys.argv) > 1):
 else:
     wm.enumerate(wiimotes)
 if (len(wiimotes) == 0):
-    print("no wii remotes detected. terminating...")
+    print("No Wii Remotes detected. Terminating...")
     sys.exit()
 
-print(f"wiimotes detected: {wiimotes}")
+print(f"{color.CYAN}-----------------------------------------------------{color.CLEAR}")
+print(f"    {color.BOLD}WII REMOTE GESTURAL CHOREOGRAPHY SYNTHESIZER{color.CLEAR}")
+print(f"{color.CYAN}-----------------------------------------------------{color.CLEAR}")
 
-#event0 = Wiivent(lib.XWII_EVENT_KEY, 0, key=(lib.XWII_KEY_A, True))
-#event1 = Wiivent(lib.XWII_EVENT_KEY, 0, acc=(0,0,100))
-#print(event1.data())
+print(f"Wii Remotes detected: {wiimotes}")
+if (len(wiimotes) != 2):
+    print(f"Choreographic synthesis is only implemented for the {color.CYAN}2-player case{color.CLEAR}; you have {color.CYAN}{len(wiimotes)} players connected{color.CLEAR}.")
+
+print("")
+
+print(f"Hold the Wii Remote face-up (A-button pointing towards the sky) with the tip\n(infrared sensor window) slightly higher than the base (nunchuk port).\n")
+print(f"Each player can {color.BOLD}SEND{color.CLEAR} a message to the other by flicking the Wii Remote\nforwards and down with the face up, like an overhand toss.\n")
+print(f"They can also {color.BOLD}RECV{color.CLEAR} a message by drawing a clockwise circle in the air with\nthe tip of their Wii Remote.\n")
+
+print(f"Beginning execution.")
+
+if (isinstance(wiimotes[0], wm.WiimoteSim)):
+    print(f"Simulating from given files...")
+
+print("")
 
 while (1):
     eventsOngoing = False
@@ -35,13 +56,16 @@ while (1):
         break
 
 if (len(wiimotes) != 2):
-    print("execution complete. synthesis is only supported for 2 players; terminating.")
+    print("Execution complete. Final state:")
+    for wiimote in wiimotes:
+        print(f"Player {wiimote.player}: {wiimote.events}")
+    print("Synthesis is only supported for 2 players; terminating.")
     sys.exit()
-
-print(f"execution complete. synthesizing:")
-choreography = choreo.synthesize(wiimotes)
-print(choreography)
-display.make_chart("choreo", choreography)
-display.view_chart("choreo")
-display.delete_chart_raw("choreo")
-#display.play_random_sound("sounds/success")
+else:
+    print(f"Execution complete. Synthesizing:")
+    choreography = choreo.synthesize(wiimotes)
+    print(choreography)
+    display.make_chart("choreo", choreography)
+    display.view_chart("choreo")
+    display.delete_chart_raw("choreo")
+    #display.play_random_sound("sounds/success")

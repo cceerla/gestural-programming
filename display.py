@@ -4,8 +4,8 @@ from pydub.playback import play
 import random
 import choreo
 
-p0_name = "\"Player 1\\n■□□□\""
-p1_name = "\"Player 2\\n■■□□\""
+p0_name = "\"■□□□\""
+p1_name = "\"■■□□\""
 p_names = [p0_name, p1_name]
 
 def make_chart(name:str, chor:choreo.Choreography):
