@@ -44,7 +44,8 @@ if (isinstance(wiimotes[0], wm.WiimoteLive)):
     print(f"Hold the Wii Remote face-up (A-button pointing towards the sky) with the tip\n(infrared sensor window) slightly higher than the base (nunchuk port).\n")
     print(f"Each player can {color.BOLD}SEND{color.CLEAR} a message to the other by flicking the Wii Remote\nforwards and down with the face up, like an overhand toss.\n")
     print(f"They can also {color.BOLD}RECV{color.CLEAR} a message by drawing a clockwise circle in the air with\nthe tip of their Wii Remote.\n")
-    print(f"To {color.BOLD}STOP{color.CLEAR} a particular Wii Remote from participating in the execution, double-tap\nthe B-button.\n")
+    print(f"The most recent event on the Wii Remote can be {color.BOLD}UNDONE{color.CLEAR} by double-tapping\nthe 1-button.\n")
+    print(f"To {color.BOLD}STOP{color.CLEAR} a particular Wii Remote from participating in the execution any longer, double-tap\nthe B-button.\n")
 
 print(f"Beginning execution.")
 
