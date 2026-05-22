@@ -1,4 +1,7 @@
 import os
+from pydub import AudioSegment
+from pydub.playback import play
+import random
 import choreo
 
 p0_name = "\"Player 1\\n■□□□\""
@@ -29,3 +32,14 @@ def chart_choreography(name:str, chor:choreo.Choreography):
     make_chart(name, chor)
     view_chart(name)
     delete_chart_raw(name)
+
+
+# given a directory, play a random sound
+# TODO: current issue: python file cant seem to find/access audio driver (?) despite being sudo'd.
+def play_random_sound(directory:str):
+    # src: https://stackoverflow.com/questions/2152898/filtering-a-list-of-strings-based-on-contents
+    # but also adrian brasoveanu's code
+    files = [file for file in os.listdir(directory) if '.ogg' in file]
+    #os.system(f"play -q {random.choice(files)}")
+    sfx = AudioSegment.from_ogg(f"{directory}/{random.choice(files)}")
+    play(sfx)
