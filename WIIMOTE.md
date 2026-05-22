@@ -46,6 +46,9 @@ $ pyenv activate wiivenv
 - run the file:
 $ sudo $(printenv VIRTUAL_ENV)/bin/python3 $1 $2 $3 $4 $5 $6 $7 $8 $9
 
+## Sox for sounds
+$ sudo apt install sox
+
 # wiimote class
 
 Wiimote:
